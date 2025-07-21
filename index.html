@@ -1,0 +1,154 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mystery Box Voting</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 1rem;
+      background: #f0f2f5;
+      color: #333;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+    }
+    h2 {
+      text-align: center;
+    }
+    .box-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+      gap: 10px;
+      margin: 1rem 0;
+    }
+    .box {
+      background: #007bff;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: 0.3s;
+    }
+    .box:hover {
+      background: #0056b3;
+    }
+    input, button {
+      width: 100%;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+    .result-table {
+      margin-top: 2rem;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .result-table th, .result-table td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    .download-btn {
+      background: #28a745;
+      color: white;
+      border: none;
+      margin-top: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Mystery Box Voting</h2>
+    <input type="text" id="nameInput" placeholder="Enter your name" required />
+    <div class="box-grid" id="boxGrid"></div>
+    <button class="download-btn" onclick="downloadCSV()">Download Results (CSV)</button>
+    <table class="result-table" id="resultsTable"></table>
+  </div>
+
+  <script>
+    const scriptURL = 'YOUR_GOOGLE_SCRIPT_WEB_APP_URL';
+    const totalBoxes = 23;
+    const nameInput = document.getElementById("nameInput");
+    const boxGrid = document.getElementById("boxGrid");
+    const resultsTable = document.getElementById("resultsTable");
+
+    async function fetchResults() {
+      try {
+        const res = await fetch(scriptURL);
+        const data = await res.json();
+        renderResults(data);
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
+    }
+
+    function renderResults(data) {
+      resultsTable.innerHTML = '<tr><th>Name</th><th>Box</th><th>Timestamp</th></tr>';
+      data.forEach(([name, number, time]) => {
+        resultsTable.innerHTML += `<tr><td>${name}</td><td>${number}</td><td>${time}</td></tr>`;
+      });
+    }
+
+    async function pickBox(number) {
+      const name = nameInput.value.trim();
+      if (!name) return alert("Enter your name first");
+
+      const body = JSON.stringify({ name, number });
+      try {
+        const res = await fetch(scriptURL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body
+        });
+        const text = await res.text();
+        if (text === "duplicate") alert("Box already picked");
+        else if (text === "success") {
+          alert("Saved successfully");
+          fetchResults();
+        } else {
+          alert("Error: " + text);
+        }
+      } catch (err) {
+        console.error("Post error:", err);
+      }
+    }
+
+    function downloadCSV() {
+      let csv = "Name,Box,Timestamp\n";
+      const rows = resultsTable.querySelectorAll("tr");
+      rows.forEach((row, i) => {
+        if (i === 0) return;
+        const cols = row.querySelectorAll("td");
+        const line = [...cols].map(td => td.textContent).join(",");
+        csv += line + "\n";
+      });
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "mystery_box_results.csv";
+      link.click();
+    }
+
+    for (let i = 1; i <= totalBoxes; i++) {
+      const div = document.createElement("div");
+      div.className = "box";
+      div.textContent = i;
+      div.onclick = () => pickBox(i);
+      boxGrid.appendChild(div);
+    }
+
+    fetchResults();
+  </script>
+</body>
+</html>
